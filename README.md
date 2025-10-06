@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/yourusername/i-programming-language/main/docs/logo.png" alt="I Programming Language Logo" width="120" />
 </p>
 
-<h1 align="center">🧠 I Programming Language (Intelligent Language)</h1>
+<h1 align="center">🧠 i (I) Programming Language, iLang</h1>
 
 <p align="center">
   <b>AI-driven, language-agnostic code synthesis framework for exploratory and research use</b><br/>
@@ -13,8 +13,8 @@
 
 ## 🔍 Overview
 
-**I Programming Language** is an experimental framework for **AI-driven software creation**.  
-It generates, integrates, and orchestrates code across multiple programming languages using large language models (LLMs).  
+**I Programming Language** is an experimental framework for **AI-driven software creation**.
+It generates, integrates, and orchestrates code across multiple programming languages using large language models (LLMs).
 The goal is to enable **exploratory and research use** in **cross-language code synthesis**, where hybrid, language-agnostic scripts are created and executed seamlessly.
 
 ---
@@ -51,17 +51,17 @@ result = E(myfunc, [3])
 ## 🧠 Under the Hood
 
 Each `C()` call:
-1. Builds a structured LLM prompt (e.g., “You are an expert Python developer”).  
-2. Generates code, dependencies, and unit tests.  
-3. Performs static and sandboxed validation.  
+1. Builds a structured LLM prompt (e.g., “You are an expert Python developer”).
+2. Generates code, dependencies, and unit tests.
+3. Performs static and sandboxed validation.
 4. Produces a **GeneratedFunction** object with:
-   - Source code  
-   - Interpreter metadata  
+   - Source code
+   - Interpreter metadata
    - Provenance (model, prompt hash, dependencies)
 
 Each `E()` call:
-- Validates input/output schemas.  
-- Runs in an isolated, resource-limited environment.  
+- Validates input/output schemas.
+- Runs in an isolated, resource-limited environment.
 - Returns structured results and execution logs.
 
 ---
@@ -70,8 +70,8 @@ Each `E()` call:
 
 ```txt
 FunctionSpec:
-  lang: "python" | "javascript" | "c++" | ...
-  version: "3.13" | "20" | ...
+  lang: "python" | "c" | "javascript" | ...
+  version: "3.13" | "17" | "20" | ...
   description: string
   result_type: Schema
   input_types: Schema[]
@@ -102,19 +102,21 @@ model = E(train_model, [df, "target", 0.8, 0.2])
 
 | Milestone | Goal |
 |------------|------|
-| **M0** | Python-only `C` and `E` with sandboxed execution |
-| **M1** | Add Node.js and pipeline composition (`P`) |
-| **M2** | Policy layer: dependency allowlists, no-network mode |
-| **M3** | Research layer: self-repair, prompt variants, reproducibility |
+| **M0** | Implement Python-only `C` and `E` with sandboxed execution |
+| **M1** | Add C language integration and Python↔C interoperability |
+| **M2** | Add JavaScript language integration and Python↔JavaScript interoperability |
+| **M3** | Introduce pipeline composition (`P`) and cross-language stitching |
+| **M4** | Policy layer: dependency allowlists, no-network mode |
+| **M5** | Research layer: self-repair, prompt variants, reproducibility |
 
 ---
 
 ## 🔐 Safety & Isolation
 
-All code runs in a **secure sandbox** (containerized or WASM-based).  
-- 🚫 No default network access  
-- ⏱️ Time and memory limits  
-- 📦 Dependency pinning  
+All code runs in a **secure sandbox** (containerized or WASM-based).
+- 🚫 No default network access
+- ⏱️ Time and memory limits
+- 📦 Dependency pinning
 - 🧾 Provenance tracking (prompt, model, deps, hash)
 
 ---
@@ -124,28 +126,15 @@ All code runs in a **secure sandbox** (containerized or WASM-based).
 > “Describe what you want — I will build it.”
 
 **I Programming Language** aims to:
-- Bridge human intent and machine execution  
-- Enable AI-native programming paradigms  
-- Explore reproducible, explainable AI code generation  
+- Bridge human intent and machine execution
+- Enable AI-native programming paradigms
+- Explore reproducible, explainable AI code generation
 - Serve as a foundation for **self-constructing software systems**
 
 ---
 
-## ⚠️ Disclaimer
-
-This project is **experimental** and intended for **exploratory and research use**.  
-Generated code may be unpredictable or unsafe outside isolated environments.
-
----
-
-## 📜 License
-MIT (or your preferred open-source license)
-
----
-
-## 🧩 Authors
-- *[Your Name / Organization]*  
-- *Contributors welcome!*
+## 🧩 Author
+**Usman Ahmad** <span style="color:limegreen">Selphaware</span>
 
 ---
 
