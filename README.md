@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/yourusername/i-programming-language/main/docs/logo.png" alt="I Programming Language Logo" width="120" />
+  <img src="https://raw.githubusercontent.com/selphaware/ilang/logo.png" alt="I Programming Language Logo" width="120" />
 </p>
 
 <h1 align="center">🧠 i (I) Programming Language, iLang</h1>
