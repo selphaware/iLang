@@ -81,20 +81,84 @@ FunctionSpec:
 
 ---
 
-## 🧪 Example: ML Function Generation
+## 🧩 Extended Architecture: `.F`, `.X`, and `.I` Structure
 
-```python
-train_model = C(
-    "Python",
-    "3.13",
-    "build a linear regression model from input DataFrame and target column, "
-    "with random search hyperparameter optimization",
-    "sklearn.linear_model.LinearRegression",
-    ["pd.DataFrame", "str", "float", "float"]
-)
+iLang introduces a **multi-layered file architecture** to separate definition, generation, and integration:
 
-model = E(train_model, [df, "target", 0.8, 0.2])
+| Layer | File/Dir | Purpose |
+|--------|-----------|----------|
+| **Definition** | `.F` | Defines abstract functions via LLM prompts |
+| **Execution** | `.X/` | Contains generated source code and compiled artifacts (C or ASM) |
+| **Integration** | `.I` | Combines compiled modules for execution and linkage |
+
+### Example Structure
+
 ```
+project/
+├── example.F
+├── example.X/
+│   ├── example.f1.py
+│   ├── example.f1.cpp
+│   ├── example.f1.c
+│   ├── example.f1.asm
+│   └── ...
+└── example.I
+```
+
+### 🔧 Function Definition (`.F`)
+
+```txt
+# example.F
+
+f1 = C(Python, "add two numbers", int, [int, int])
+f2 = C(C++, "square number", int, [int])
+```
+
+Each definition uses `C()` to declare:
+- The source language
+- Function description
+- Input and output data types
+
+---
+
+### 🧩 Language Execution (`.X` Directory)
+
+Generated code and compiled files are stored in the `.X/` directory.
+
+```txt
+example.X/
+  ├── example.f1.py
+  ├── example.f1.cpp
+  ├── example.f1.c
+  ├── example.f1.asm
+```
+
+Each function can be compiled to **C** or **ASM**:
+
+```
+f1 --> Python script --> compiled to C (or .H)
+f2 --> C++ script --> compiled to C (or .H)
+```
+
+---
+
+### 🔗 Integration Layer (`.I`)
+
+The `.I` layer brings everything together for inclusion and execution:
+
+```txt
+# example.I
+
+include "example.f1.c"
+include "example.f2.c"
+
+int main() {
+    printf("%d", f1(3, 4));
+    printf("%d", f2(5));
+}
+```
+
+This enables **cross-language function composition**, allowing multiple generated functions to coexist and be compiled together.
 
 ---
 
@@ -105,9 +169,9 @@ model = E(train_model, [df, "target", 0.8, 0.2])
 | **M0** | Implement Python-only `C` and `E` with sandboxed execution |
 | **M1** | Add C language integration and Python↔C interoperability |
 | **M2** | Add JavaScript language integration and Python↔JavaScript interoperability |
-| **M3** | Introduce pipeline composition (`P`) and cross-language stitching |
-| **M4** | Policy layer: dependency allowlists, no-network mode |
-| **M5** | Research layer: self-repair, prompt variants, reproducibility |
+| **M3** | Introduce `.F`, `.X`, `.I` pipeline for multi-language compilation |
+| **M4** | Add pipeline composition (`P`) and cross-language stitching |
+| **M5** | Research & Policy layer: dependency allowlists, provenance, reproducibility |
 
 ---
 
