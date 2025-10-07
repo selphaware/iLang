@@ -202,6 +202,14 @@ All code runs in a **secure sandbox** (containerized or WASM-based).
 
 ---
 
+## 📘 Next: Continue Reading
+
+To explore the next stage of iLang development — including deeper insights into the `.F`, `.X`, and `.I` compilation pipeline, LLM integration strategies, and interoperability — continue to:
+
+➡️ [Next: iLang_Architecture.md](iLang_Architecture.md)
+
+---
+
 <p align="center">
   <sub>© 2025 I Programming Language — Intelligent Language for AI-driven Software Creation</sub>
 </p>
