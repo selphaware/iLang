@@ -70,7 +70,7 @@ def chat(
     }
 
     # Skip unsupported sampling params for reasoning models
-    if model.lower().startswith(("gpt-5", "o1")):
+    if model.lower().startswith(("gpt-5", "o1", "o3")):
         kwargs.pop("temperature", None)
         kwargs.pop("top_p", None)
 
