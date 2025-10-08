@@ -1,0 +1,3 @@
+@echo off
+echo Generating code...
+type prompt.txt | python gen\aiinterface.py -p - -m gpt-5
