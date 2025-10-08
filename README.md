@@ -11,6 +11,18 @@
 
 ---
 
+## 📘 Quick Reference
+
+Before diving into the **Overview**, check out the following usage guides and resources:
+
+- 🗨️ [Chat Usage Guide](chat_usage.md) — Learn how to generate and stream code using **aiinterface.py**
+- ⚙️ [Code Generation Usage](codegen_usage.md) — Explore how to use **codegen.py** to save model-generated code to files
+- 🧠 [Available Models](models_for_codegen.md) — See all supported **OpenAI models** usable for code generation
+
+> 💡 Currently, iLang connects directly to **OpenAI’s family of models** for all code generation tasks.
+
+---
+
 ## 🔍 Overview
 
 **I Programming Language** is an experimental framework for **AI-driven software creation**.
