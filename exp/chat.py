@@ -66,6 +66,12 @@ def chat(
         "temperature": temperature,
         "top_p": top_p,
     }
+
+    # Skip unsupported sampling params for reasoning models
+    if model.lower().startswith(("gpt-5", "o1")):
+        kwargs.pop("temperature", None)
+        kwargs.pop("top_p", None)
+
     if max_output_tokens is not None:
         kwargs["max_output_tokens"] = max_output_tokens
     if reasoning_effort:
