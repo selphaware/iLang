@@ -1,0 +1,3 @@
+@echo off
+echo Generating code...
+type prompt.txt | python ..\chat.py -p - -m gpt-5

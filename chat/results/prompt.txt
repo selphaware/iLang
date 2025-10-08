@@ -1,0 +1,16 @@
+Write a single-file C11 program that:
+- Uses only <stdio.h>, <stdlib.h>, <string.h>, compiles clean with -std=c11 -Wall -Wextra -O2.
+- Defines:
+  typedef struct {
+    size_t n_rows, n_cols;
+    char **col_names;      // [n_cols]
+    char ***data;          // [n_rows][n_cols], each cell heap-allocated
+  } DataFrame;
+- Implements:
+  DataFrame *read_csv(const char *filename, char delimiter);
+  static void free_dataframe(DataFrame *df); // frees all owned memory
+  static int parse_record(FILE *f, char delimiter, char ***out_fields, size_t *out_count); // 1=ok,0=eof,-1=err
+- CSV rules (RFC4180-ish): first row is header; quoted fields with "" escapes; quoted fields may contain newlines; accept \n/\r\n/\r; skip blank lines; allow spaces after closing quote before delimiter/EOL; strip UTF-8 BOM only from first header cell; pad short rows with "" and truncate extras (free them).
+- Memory: dynamic growth via realloc; on any error, free partial data and return NULL.
+- main(int argc, char *argv[]): requires argv[1] filename (print "Usage: <prog> <csv_filename>" if missing), calls read_csv(argv[1], ','), prints file name, "Rows: <n>, Cols: <m>", then "Headers:" with indexed names, then "Data:" with every row (cells joined by ", "), then calls free_dataframe(df).
+Output ONLY the code, no markdown fences, no explanations.

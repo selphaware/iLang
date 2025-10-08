@@ -163,6 +163,8 @@ def _parse_args(argv: Iterable[str]) -> argparse.Namespace:
 
 def main(argv: Iterable[str] = None) -> int:
     ns = _parse_args(argv or sys.argv[1:])
+    if ns.prompt == "-":
+        ns.prompt = sys.stdin.read()
     if ns.stream:
         start = time.time()
         def printer(tok: str) -> None:

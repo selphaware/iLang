@@ -3,314 +3,370 @@
 #include <string.h>
 
 typedef struct {
-    size_t n_rows;
-    size_t n_cols;
-    char **col_names;   // [n_cols] column headers
-    char ***data;       // [n_rows][n_cols] cells as heap-allocated strings
+  size_t n_rows, n_cols;
+  char **col_names;      // [n_cols]
+  char ***data;          // [n_rows][n_cols], each cell heap-allocated
 } DataFrame;
 
-static void free_dataframe(DataFrame *df) {
-    if (!df) return;
-    if (df->col_names) {
-        for (size_t j = 0; j < df->n_cols; ++j) free(df->col_names[j]);
-        free(df->col_names);
-    }
-    if (df->data) {
-        for (size_t i = 0; i < df->n_rows; ++i) {
-            if (df->data[i]) {
-                for (size_t j = 0; j < df->n_cols; ++j) free(df->data[i][j]);
-                free(df->data[i]);
-            }
-        }
-        free(df->data);
-    }
-    free(df);
-}
-
 static char *xstrdup(const char *s) {
-    if (!s) return NULL;
-    size_t n = strlen(s) + 1;
-    char *p = (char *)malloc(n);
-    if (p) memcpy(p, s, n);
-    return p;
+  size_t len = strlen(s);
+  char *p = (char *)malloc(len + 1);
+  if (!p) return NULL;
+  memcpy(p, s, len + 1);
+  return p;
 }
 
-static int append_char(char **buf, size_t *len, size_t *cap, char c) {
-    if (*len + 1 >= *cap) {
-        size_t ncap = (*cap == 0 ? 64 : (*cap * 2));
-        char *nbuf = (char *)realloc(*buf, ncap);
-        if (!nbuf) return 0;
-        *buf = nbuf;
-        *cap = ncap;
+static void free_fields(char **fields, size_t count) {
+  if (!fields) return;
+  for (size_t i = 0; i < count; i++) {
+    free(fields[i]);
+  }
+  free(fields);
+}
+
+static int append_char(char **buf, size_t *len, size_t *cap, char ch) {
+  if (*len + 1 >= *cap) {
+    size_t ncap = (*cap == 0) ? 16 : (*cap * 2);
+    char *nbuf = (char *)realloc(*buf, ncap);
+    if (!nbuf) return 0;
+    *buf = nbuf;
+    *cap = ncap;
+  }
+  (*buf)[(*len)++] = ch;
+  return 1;
+}
+
+static int push_field(char ***fields, size_t *flen, size_t *fcap,
+                      char **buf, size_t *blen, size_t *bcap) {
+  if (!append_char(buf, blen, bcap, '\0')) return 0;
+  char *s = (char *)malloc(*blen);
+  if (!s) return 0;
+  memcpy(s, *buf, *blen);
+  *blen = 0;
+
+  if (*flen >= *fcap) {
+    size_t ncap = (*fcap == 0) ? 8 : (*fcap * 2);
+    char **nf = (char **)realloc(*fields, ncap * sizeof(char *));
+    if (!nf) {
+      free(s);
+      return 0;
     }
-    (*buf)[(*len)++] = c;
-    return 1;
+    *fields = nf;
+    *fcap = ncap;
+  }
+  (*fields)[(*flen)++] = s;
+  return 1;
 }
 
-static int push_field(char ****fields, size_t *count, size_t *cap, char *buf, size_t len) {
-    if (*count + 1 > *cap) {
-        size_t ncap = (*cap == 0 ? 8 : (*cap * 2));
-        char ***narr = (char ***)realloc(*fields, ncap * sizeof(char **));
-        if (!narr) return 0;
-        *fields = narr;
-        *cap = ncap;
-    }
-    char *s = (char *)malloc(len + 1);
-    if (!s) return 0;
-    if (len) memcpy(s, buf, len);
-    s[len] = '\0';
-    (*fields)[(*count)++] = (char **)s; // temporarily store as char**-typed slot; cast back later
-    return 1;
-}
-
-// Reads one CSV record (RFC4180-ish), returns 1 if a record was read, 0 on EOF, -1 on error.
-// out_fields will be an array of char* of length out_count. Caller must free each string and the array.
+// 1=ok,0=eof,-1=err
 static int parse_record(FILE *f, char delimiter, char ***out_fields, size_t *out_count) {
-    char *buf = NULL;
-    size_t blen = 0, bcap = 0;
+  if (!out_fields || !out_count) return -1;
 
-    char ***fields_tmp = NULL; // store strings in this array, but typed as char***
-    size_t fcount = 0, fcap = 0;
-
-    int in_quotes = 0;
-    int started = 0;
-
-    for (;;) {
-        int ch = fgetc(f);
-        if (ch == EOF) {
-            if (!started && blen == 0 && fcount == 0) {
-                // true EOF, no data
-                free(buf);
-                free(fields_tmp);
-                return 0;
-            }
-            // finalize last field and record at EOF
-            if (!push_field(&fields_tmp, &fcount, &fcap, buf, blen)) { free(buf); free(fields_tmp); return -1; }
-            break;
-        }
-
-        if (!in_quotes) {
-            if (ch == delimiter) {
-                if (!push_field(&fields_tmp, &fcount, &fcap, buf, blen)) { free(buf); free(fields_tmp); return -1; }
-                blen = 0;
-                started = 1;
-                continue;
-            }
-            if (ch == '\r' || ch == '\n') {
-                // end of record
-                if (ch == '\r') {
-                    int c2 = fgetc(f);
-                    if (c2 != '\n' && c2 != EOF) ungetc(c2, f);
-                }
-                // handle blank line: if nothing read and no fields, skip and continue reading
-                if (!started && blen == 0 && fcount == 0) {
-                    continue;
-                }
-                if (!push_field(&fields_tmp, &fcount, &fcap, buf, blen)) { free(buf); free(fields_tmp); return -1; }
-                break;
-            }
-            if (ch == '"' && blen == 0 && !started) {
-                // starting a quoted field at the beginning of field
-                in_quotes = 1;
-                started = 1;
-                continue;
-            }
-            // regular character
-            if (!append_char(&buf, &blen, &bcap, (char)ch)) { free(buf); free(fields_tmp); return -1; }
-            started = 1;
-        } else {
-            // inside quotes
-            if (ch == '"') {
-                int c2 = fgetc(f);
-                if (c2 == '"') {
-                    // escaped quote
-                    if (!append_char(&buf, &blen, &bcap, '"')) { free(buf); free(fields_tmp); return -1; }
-                } else {
-                    // end of quoted field
-                    in_quotes = 0;
-                    if (c2 != EOF) {
-                        // treat next char under non-quoted rules
-                        if (c2 == delimiter) {
-                            if (!push_field(&fields_tmp, &fcount, &fcap, buf, blen)) { free(buf); free(fields_tmp); return -1; }
-                            blen = 0;
-                            started = 1;
-                            continue;
-                        } else if (c2 == '\r' || c2 == '\n') {
-                            if (c2 == '\r') {
-                                int c3 = fgetc(f);
-                                if (c3 != '\n' && c3 != EOF) ungetc(c3, f);
-                            }
-                            if (!push_field(&fields_tmp, &fcount, &fcap, buf, blen)) { free(buf); free(fields_tmp); return -1; }
-                            break;
-                        } else {
-                            // According to RFC, spaces may follow closing quote before delimiter/EOL; accept any chars
-                            if (!append_char(&buf, &blen, &bcap, (char)c2)) { free(buf); free(fields_tmp); return -1; }
-                            started = 1;
-                        }
-                    } else {
-                        // EOF after closing quote: finalize field
-                        if (!push_field(&fields_tmp, &fcount, &fcap, buf, blen)) { free(buf); free(fields_tmp); return -1; }
-                        break;
-                    }
-                }
-            } else {
-                // regular char inside quotes (including newlines)
-                if (!append_char(&buf, &blen, &bcap, (char)ch)) { free(buf); free(fields_tmp); return -1; }
-            }
-        }
+  // Skip blank lines (\n, \r, \r\n)
+  for (;;) {
+    int c = fgetc(f);
+    if (c == EOF) return 0;
+    if (c == '\r') {
+      int d = fgetc(f);
+      if (d != '\n' && d != EOF) ungetc(d, f);
+      continue;
     }
+    if (c == '\n') continue;
+    ungetc(c, f);
+    break;
+  }
 
-    free(buf);
+  char **fields = NULL;
+  size_t fields_len = 0, fields_cap = 0;
 
-    // Convert fields_tmp (char*** with char* payload) into char** array
-    char **fields = (char **)malloc(fcount * sizeof(char *));
-    if (!fields) { // free all strings
-        for (size_t i = 0; i < fcount; ++i) free((char *)fields_tmp[i]);
-        free(fields_tmp);
+  char *buf = NULL;
+  size_t buf_len = 0, buf_cap = 0;
+
+  int in_quotes = 0;
+  int start_of_field = 1;
+
+  for (;;) {
+    int c = fgetc(f);
+    if (c == EOF) {
+      if (in_quotes) {
+        free_fields(fields, fields_len);
+        free(buf);
         return -1;
+      }
+      if (!push_field(&fields, &fields_len, &fields_cap, &buf, &buf_len, &buf_cap)) {
+        free_fields(fields, fields_len);
+        free(buf);
+        return -1;
+      }
+      free(buf);
+      *out_fields = fields;
+      *out_count = fields_len;
+      return 1;
     }
-    for (size_t i = 0; i < fcount; ++i) {
-        fields[i] = (char *)fields_tmp[i];
-    }
-    free(fields_tmp);
 
-    *out_fields = fields;
-    *out_count = fcount;
-    return 1;
+    if (in_quotes) {
+      if (c == '"') {
+        int next = fgetc(f);
+        if (next == '"') {
+          if (!append_char(&buf, &buf_len, &buf_cap, '"')) {
+            free_fields(fields, fields_len);
+            free(buf);
+            return -1;
+          }
+        } else {
+          // End of quoted field
+          // Allow spaces after closing quote before delimiter/EOL
+          while (next == ' ') {
+            next = fgetc(f);
+          }
+          if (next == (unsigned char)delimiter) {
+            if (!push_field(&fields, &fields_len, &fields_cap, &buf, &buf_len, &buf_cap)) {
+              free_fields(fields, fields_len);
+              free(buf);
+              return -1;
+            }
+            start_of_field = 1;
+            in_quotes = 0;
+            continue;
+          } else if (next == '\r' || next == '\n' || next == EOF) {
+            if (!push_field(&fields, &fields_len, &fields_cap, &buf, &buf_len, &buf_cap)) {
+              free_fields(fields, fields_len);
+              free(buf);
+              return -1;
+            }
+            if (next == '\r') {
+              int nn = fgetc(f);
+              if (nn != '\n' && nn != EOF) ungetc(nn, f);
+            }
+            if (next == EOF) {
+              free(buf);
+              *out_fields = fields;
+              *out_count = fields_len;
+              return 1;
+            }
+            free(buf);
+            *out_fields = fields;
+            *out_count = fields_len;
+            return 1;
+          } else {
+            // Invalid character after closing quote
+            free_fields(fields, fields_len);
+            free(buf);
+            return -1;
+          }
+        }
+      } else {
+        if (!append_char(&buf, &buf_len, &buf_cap, (char)c)) {
+          free_fields(fields, fields_len);
+          free(buf);
+          return -1;
+        }
+      }
+      continue;
+    } else {
+      // Not in quotes
+      if (start_of_field && c == '"') {
+        in_quotes = 1;
+        start_of_field = 0;
+        continue;
+      }
+      if (c == (unsigned char)delimiter) {
+        if (!push_field(&fields, &fields_len, &fields_cap, &buf, &buf_len, &buf_cap)) {
+          free_fields(fields, fields_len);
+          free(buf);
+          return -1;
+        }
+        start_of_field = 1;
+        continue;
+      }
+      if (c == '\r' || c == '\n') {
+        if (!push_field(&fields, &fields_len, &fields_cap, &buf, &buf_len, &buf_cap)) {
+          free_fields(fields, fields_len);
+          free(buf);
+          return -1;
+        }
+        if (c == '\r') {
+          int d = fgetc(f);
+          if (d != '\n' && d != EOF) ungetc(d, f);
+        }
+        free(buf);
+        *out_fields = fields;
+        *out_count = fields_len;
+        return 1;
+      }
+      if (!append_char(&buf, &buf_len, &buf_cap, (char)c)) {
+        free_fields(fields, fields_len);
+        free(buf);
+        return -1;
+      }
+      start_of_field = 0;
+    }
+  }
 }
 
-static void strip_utf8_bom(char *s) {
-    if (!s) return;
-    unsigned char *u = (unsigned char *)s;
-    if (u[0] == 0xEF && u[1] == 0xBB && u[2] == 0xBF) {
-        size_t n = strlen(s + 3);
-        memmove(s, s + 3, n + 1);
-    }
-}
-
-static char *empty_strdup(void) {
-    char *p = (char *)malloc(1);
-    if (p) p[0] = '\0';
-    return p;
+static void strip_bom(char *s) {
+  if (!s) return;
+  if ((unsigned char)s[0] == 0xEF &&
+      (unsigned char)s[1] == 0xBB &&
+      (unsigned char)s[2] == 0xBF) {
+    size_t len = strlen(s);
+    memmove(s, s + 3, len - 2);
+  }
 }
 
 DataFrame *read_csv(const char *filename, char delimiter) {
-    FILE *f = fopen(filename, "rb");
-    if (!f) return NULL;
+  FILE *f = fopen(filename, "rb");
+  if (!f) return NULL;
 
-    // Read header
-    char **header = NULL;
-    size_t n_cols = 0;
-    int rc = parse_record(f, delimiter, &header, &n_cols);
-    if (rc <= 0 || n_cols == 0) { // no header or error
-        if (rc > 0) {
-            for (size_t i = 0; i < n_cols; ++i) free(header[i]);
-            free(header);
+  char **headers = NULL;
+  size_t hcount = 0;
+  int pr = parse_record(f, delimiter, &headers, &hcount);
+  if (pr != 1) {
+    fclose(f);
+    if (headers) free_fields(headers, hcount);
+    return NULL;
+  }
+
+  if (hcount > 0) {
+    strip_bom(headers[0]);
+  }
+
+  char ***rows = NULL;
+  size_t rows_len = 0, rows_cap = 0;
+
+  for (;;) {
+    char **fields = NULL;
+    size_t count = 0;
+    pr = parse_record(f, delimiter, &fields, &count);
+    if (pr == 0) break;         // EOF
+    if (pr == -1) {             // parse error
+      free_fields(headers, hcount);
+      for (size_t r = 0; r < rows_len; r++) {
+        free_fields(rows[r], hcount);
+      }
+      free(rows);
+      fclose(f);
+      return NULL;
+    }
+
+    if (count < hcount) {
+      char **nf = (char **)realloc(fields, hcount * sizeof(char *));
+      if (!nf) {
+        free_fields(fields, count);
+        free_fields(headers, hcount);
+        for (size_t r = 0; r < rows_len; r++) {
+          free_fields(rows[r], hcount);
         }
+        free(rows);
         fclose(f);
         return NULL;
-    }
-    // Strip BOM from first header if present
-    if (n_cols > 0) strip_utf8_bom(header[0]);
-
-    // Prepare DataFrame
-    DataFrame *df = (DataFrame *)calloc(1, sizeof(DataFrame));
-    if (!df) { for (size_t i = 0; i < n_cols; ++i) free(header[i]); free(header); fclose(f); return NULL; }
-    df->n_cols = n_cols;
-    df->col_names = (char **)malloc(n_cols * sizeof(char *));
-    if (!df->col_names) { free_dataframe(df); for (size_t i = 0; i < n_cols; ++i) free(header[i]); free(header); fclose(f); return NULL; }
-    for (size_t j = 0; j < n_cols; ++j) {
-        df->col_names[j] = header[j]; // take ownership
-    }
-    free(header);
-
-    // Read rows
-    size_t rows_cap = 0;
-    df->data = NULL;
-    df->n_rows = 0;
-
-    for (;;) {
-        char **fields = NULL;
-        size_t fcount = 0;
-        int rr = parse_record(f, delimiter, &fields, &fcount);
-        if (rr == 0) break;          // EOF
-        if (rr < 0) { free_dataframe(df); fclose(f); return NULL; }
-
-        // Skip completely empty records (e.g., blank lines)
-        int all_empty = 1;
-        for (size_t i = 0; i < fcount; ++i) {
-            if (fields[i][0] != '\0') { all_empty = 0; break; }
+      }
+      fields = nf;
+      for (size_t j = count; j < hcount; j++) {
+        fields[j] = xstrdup("");
+        if (!fields[j]) {
+          for (size_t k = count; k < j; k++) free(fields[k]);
+          free_fields(fields, count);
+          free_fields(headers, hcount);
+          for (size_t r = 0; r < rows_len; r++) {
+            free_fields(rows[r], hcount);
+          }
+          free(rows);
+          fclose(f);
+          return NULL;
         }
-        if (fcount == 0 || all_empty) {
-            for (size_t i = 0; i < fcount; ++i) free(fields[i]);
-            free(fields);
-            continue;
-        }
-
-        if (df->n_rows + 1 > rows_cap) {
-            size_t ncap = (rows_cap == 0 ? 64 : rows_cap * 2);
-            char ***ndata = (char ***)realloc(df->data, ncap * sizeof(char **));
-            if (!ndata) {
-                for (size_t i = 0; i < fcount; ++i) free(fields[i]);
-                free(fields);
-                free_dataframe(df);
-                fclose(f);
-                return NULL;
-            }
-            df->data = ndata;
-            rows_cap = ncap;
-        }
-
-        char **row = (char **)malloc(df->n_cols * sizeof(char *));
-        if (!row) {
-            for (size_t i = 0; i < fcount; ++i) free(fields[i]);
-            free(fields);
-            free_dataframe(df);
-            fclose(f);
-            return NULL;
-        }
-
-        // Fill row cells, pad or truncate to n_cols
-        for (size_t j = 0; j < df->n_cols; ++j) {
-            if (j < fcount) {
-                row[j] = fields[j]; // take ownership
-            } else {
-                row[j] = empty_strdup();
-                if (!row[j]) {
-                    for (size_t k = 0; k < j; ++k) free(row[k]);
-                    free(row);
-                    for (size_t i = 0; i < fcount; ++i) free(fields[i]);
-                    free(fields);
-                    free_dataframe(df);
-                    fclose(f);
-                    return NULL;
-                }
-            }
-        }
-        // Free any extra fields beyond n_cols
-        for (size_t j = df->n_cols; j < fcount; ++j) free(fields[j]);
-        free(fields);
-
-        df->data[df->n_rows++] = row;
+      }
+      count = hcount;
+    } else if (count > hcount) {
+      for (size_t j = hcount; j < count; j++) free(fields[j]);
+      char **shrunk = (char **)realloc(fields, hcount * sizeof(char *));
+      if (shrunk) fields = shrunk;
+      count = hcount;
     }
 
-    fclose(f);
-    return df;
+    if (rows_len == rows_cap) {
+      size_t ncap = rows_cap ? (rows_cap * 2) : 8;
+      char ***nr = (char ***)realloc(rows, ncap * sizeof(char **));
+      if (!nr) {
+        free_fields(fields, count);
+        free_fields(headers, hcount);
+        for (size_t r = 0; r < rows_len; r++) {
+          free_fields(rows[r], hcount);
+        }
+        free(rows);
+        fclose(f);
+        return NULL;
+      }
+      rows = nr;
+      rows_cap = ncap;
+    }
+    rows[rows_len++] = fields;
+  }
+
+  fclose(f);
+
+  DataFrame *df = (DataFrame *)malloc(sizeof(DataFrame));
+  if (!df) {
+    free_fields(headers, hcount);
+    for (size_t r = 0; r < rows_len; r++) {
+      free_fields(rows[r], hcount);
+    }
+    free(rows);
+    return NULL;
+  }
+
+  df->n_rows = rows_len;
+  df->n_cols = hcount;
+  df->col_names = headers;
+  df->data = rows;
+  return df;
 }
 
-/* Example usage:
-
-int main(void) {
-    DataFrame *df = read_csv("data.csv", ',');
-    if (!df) {
-        fprintf(stderr, "Failed to read CSV\n");
-        return 1;
+static void free_dataframe(DataFrame *df) {
+  if (!df) return;
+  if (df->col_names) {
+    free_fields(df->col_names, df->n_cols);
+  }
+  if (df->data) {
+    for (size_t r = 0; r < df->n_rows; r++) {
+      if (df->data[r]) {
+        free_fields(df->data[r], df->n_cols);
+      }
     }
-    printf("Rows: %zu, Cols: %zu\n", df->n_rows, df->n_cols);
-    for (size_t j = 0; j < df->n_cols; ++j) printf("Header[%zu]=%s\n", j, df->col_names[j]);
-    // Access cell: df->data[row][col]
-    free_dataframe(df);
-    return 0;
+    free(df->data);
+  }
+  free(df);
 }
 
-*/
+int main(int argc, char *argv[]) {
+  if (argc < 2) {
+    printf("Usage: %s <csv_filename>\n", argc > 0 ? argv[0] : "prog");
+    return 1;
+  }
+
+  DataFrame *df = read_csv(argv[1], ',');
+  if (!df) {
+    printf("Failed to read CSV\n");
+    return 1;
+  }
+
+  printf("File: %s\n", argv[1]);
+  printf("Rows: %zu, Cols: %zu\n", df->n_rows, df->n_cols);
+
+  printf("Headers:\n");
+  for (size_t i = 0; i < df->n_cols; i++) {
+    printf("  [%zu] %s\n", i, df->col_names[i] ? df->col_names[i] : "");
+  }
+
+  printf("Data:\n");
+  for (size_t r = 0; r < df->n_rows; r++) {
+    for (size_t c = 0; c < df->n_cols; c++) {
+      printf("%s", df->data[r][c] ? df->data[r][c] : "");
+      if (c + 1 < df->n_cols) printf(", ");
+    }
+    printf("\n");
+  }
+
+  free_dataframe(df);
+  return 0;
+}
