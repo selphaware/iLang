@@ -206,5 +206,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# ----- Below added by Selpha -----
 ILANG_ENV/*
 ILANG_ENV
+
+*.exe
