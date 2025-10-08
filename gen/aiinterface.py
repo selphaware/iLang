@@ -16,8 +16,6 @@ Usage (CLI):
 Env:
   export OPENAI_KEY=sk-...
 """
-__author__ = "Usman Ahmad"
-
 from __future__ import annotations
 import argparse, json, os, sys, time
 from typing import Any, Dict, Iterable, Optional
@@ -208,3 +206,5 @@ def main(argv: Iterable[str] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+__author__ = "Usman Ahmad"
