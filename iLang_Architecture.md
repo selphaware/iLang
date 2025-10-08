@@ -130,6 +130,233 @@ Non-goals (for now): direct multi-runtime dispatch at execution time; we compile
 ```
 
 > **Result:** GPT‑5 produces **all** scripts, shims, tests, and build recipes — nothing is inferred by the runner. The runner only validates, compiles, and links.
+
+## 4A) Multi‑call Synthesis Orchestration per `C()`
+
+A single `C(...)` **does not** rely on one giant model response. Instead, it orchestrates a **series of GPT‑5 calls**, each producing **one focused artifact** (plan, source, shim, tests, build recipe, manifest), followed by validation and optional self‑repair. Below is the **step‑by‑step** flow using our two functions from `example.F`:
+
+```txt
+example.F
+f1 = C(Python, "add two numbers", int, [int, int])
+f2 = C(C++,    "square number",   int, [int])
+```
+
+### 4A.1 High‑level sequence (per function)
+
+```
+┌──────────┐     ┌───────────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+│  Runner  │────▶│ GPT‑5: PLAN   │────▶│ GPT‑5:   │────▶│ GPT‑5:   │────▶│ GPT‑5:   │
+│ (C call) │     │ (files/schema)│     │ SOURCE   │     │ SHIM     │     │ TESTS    │
+└────┬─────┘     └──────┬────────┘     └────┬─────┘     └────┬─────┘     └────┬─────┘
+     │                  │                  │               │               │
+     │                  │                  ▼               ▼               ▼
+     │                  │             write .X/       write .X/        write .X/
+     │                  │
+     │                  └────────────▶ GPT‑5: BUILD recipe (build.json) + manifest
+     │
+     ├─────────▶ Validate (schema, lint, dry‑compile shim, run tests)
+     │
+     ├─────────▶ If failure: GPT‑5 REPAIR (patch specific file) → re‑validate (N attempts)
+     │
+     └─────────▶ Finalize `.X/<func>/` artifacts
+```
+
+> **Principle:** Each call has a **tight prompt** and **narrow output** to keep responses deterministic and auditable.
+
+---
+
+### 4A.2 Concrete walk‑through — `f1` (Python: “add two numbers”)
+
+**Stage 0 — PLAN (GPT‑5 call)**  
+_Request (summary)_: “Produce a JSON plan listing files to generate for `f1` with C ABI signature.”  
+_Response (JSON extract)_:
+```json
+{
+  "name": "f1_add",
+  "signature": { "result": "int32", "inputs": ["int32","int32"] },
+  "files": [
+    {"path": "example.f1.py",      "language": "python"},
+    {"path": "example.f1_shim.h",  "language": "c"},
+    {"path": "example.f1_shim.c",  "language": "c"},
+    {"path": "tests/test_f1.py",   "language": "python"},
+    {"path": "build.json",         "language": "json"},
+    {"path": "manifest.json",      "language": "json"}
+  ]
+}
+```
+
+**Stage 1 — SOURCE (GPT‑5 call)**  
+_Constraint_: pure function `int32 add(int32,int32)` semantics.  
+_Output file_: `example.f1.py` (actual Python code body).
+
+**Stage 2 — SHIM (GPT‑5 call)**  
+_Output files_: `example.f1_shim.h`, `example.f1_shim.c` exposing
+```c
+int ilang_f1_add(int32_t a, int32_t b, int32_t* out);
+```
+
+**Stage 3 — TESTS (GPT‑5 call)**  
+_Output file_: `tests/test_f1.py` (deterministic, minimal).
+
+**Stage 4 — BUILD + MANIFEST (GPT‑5 call)**  
+_Output files_: `build.json` (toolchain, flags, targets) and `manifest.json` (provenance).
+
+**Stage 5 — VALIDATE & (optional) REPAIR (Runner + GPT‑5)**  
+- Schema parse, static checks, **dry‑compile** the C shim, run tests.  
+- On failure, send **targeted logs + failing file** to GPT‑5 **REPAIR** call (patch only that file).  
+- Re‑validate (bounded attempts).
+
+**Stage 6 — FINALIZE**  
+Artifacts for `f1` are written under `.X/f1/` and marked **valid**.
+
+---
+
+### 4A.3 Concrete walk‑through — `f2` (C++: “square number”)
+
+**Stage 0 — PLAN (GPT‑5 call)** → list `example.f2.cpp`, `example.f2_shim.h`, `example.f2_shim.c`, `tests/test_f2.cpp`, `build.json`, `manifest.json`.
+
+**Stage 1 — SOURCE (GPT‑5 call)** → `example.f2.cpp` with a function (C linkage available to shim).
+
+**Stage 2 — SHIM (GPT‑5 call)** → `example.f2_shim.h/.c` exposing
+```c
+int ilang_f2_square(int32_t x, int32_t* out);
+```
+
+**Stage 3 — TESTS (GPT‑5 call)** → `tests/test_f2.cpp` (asserts `square`).
+
+**Stage 4 — BUILD + MANIFEST (GPT‑5 call)** → `build.json`, `manifest.json`.
+
+**Stage 5 — VALIDATE & REPAIR** → same cycle as f1.
+
+**Stage 6 — FINALIZE** → `.X/f2/` complete.
+
+---
+
+### 4A.4 Integration after both functions are valid
+
+- Compile to objects (and optionally ASM), per each function’s `build.json`.  
+- Link `f1/*.o` and `f2/*.o` with your final C program declared in `.I`:
+```c
+#include "f1/example.f1_shim.h"
+#include "f2/example.f2_shim.h"
+int main(void){
+  int out;
+  ilang_f1_add(3,4,&out);   // -> 7
+  ilang_f2_square(5,&out);  // -> 25
+  return 0;
+}
+```
+- Produce the final **single C executable** (or shared library).
+
+---
+
+### 4A.5 Notes on determinism & provenance
+
+- Each GPT‑5 call is recorded with: purpose (PLAN/SOURCE/SHIM/TESTS/BUILD/REPAIR), prompts, hashes, and outputs.  
+- Deterministic options: seeded randomness captured in `manifest.json` if used.  
+- **Repair budget** is bounded (e.g., 2–3 attempts) to prevent unbounded loops.  
+- Only the **model** emits code; the runner never “fills in” files.
+
+---
+
+### 4A.6 Cross‑language datatypes reminder
+
+All shims speak the C ABI (§7), including `ilang_dataframe` for DataFrame‑like data. For Python/C++ sources that internally use native types (e.g., `pd.DataFrame`), GPT‑5 generates **marshal/unmarshal** code between the native representation and the C structs at the shim boundary.
+
+
+## 4B) Stage‑by‑Stage Call Reference (per function)
+
+This reference specifies *exactly* what each GPT‑5 call must do, what the runner provides, and what files must be returned. It complements §4 and §4A and applies to **every** function declared in a `.F` file (e.g., `f1`, `f2`).
+
+> **Contract:** The **model emits all artifacts**. The runner only validates, repairs (by asking the model to patch a single file), compiles, and links.
+
+### 4B.1 Summary Table
+
+| Stage ID | Call kind | Purpose | Inputs (Runner → Model) | Required Outputs (Model → Runner) | Validation (Runner) | On Failure |
+|---|---|---|---|---|---|---|
+| **PLAN** | GPT‑5 | Plan and enumerate artifacts with signature & ABI | Function spec (lang, ver, description, `result_type`, `input_types`), global policy (no net, code‑only), naming seed | JSON with: `name`, `signature`, `abi:"c"`, `files[]` (paths + languages), **no bodies yet** | JSON schema parse; allowed languages; file/path rules | Ask for corrected PLAN (rare) |
+| **SOURCE** | GPT‑5 | Produce reference implementation in the source language | PLAN + function spec; file path to fill (e.g., `example.f1.py`); constraints | `files[]` with **exactly one** entry for the source file containing **full code** | Lint/format (if available); quick static checks | REPAIR_SOURCE (return same path with corrected body) |
+| **SHIM** | GPT‑5 | Emit C ABI boundary (header + impl) | PLAN; signature; naming; ABI rules (§7) | `files[]` with **two** entries: `*_shim.h`, `*_shim.c` | **Dry‑compile** shim; check symbols, sizes; header guard | REPAIR_SHIM (patch the offending file only) |
+| **TESTS** | GPT‑5 | Emit minimal, deterministic tests | PLAN; signature; source language; example I/O | `files[]` with **one** test file (e.g., `tests/test_f1.py` or `.cpp`) | Run tests in sandbox interpreter/runtime | REPAIR_TESTS |
+| **BUILD+MANIFEST** | GPT‑5 | Provide build recipe and provenance | PLAN; toolchain policy; target formats (obj/asm) | `build.json` (toolchain, flags, targets) + `manifest.json` (model, hashes, deps) | JSON schema; commands allowlist | REPAIR_BUILD |
+| **VALIDATE** | Runner | Verify, compile, and test (no model call) | All generated files | Build logs; status | Dry‑compile shim; run tests; audit flags | If failing: trigger targeted REPAIR call |
+| **FINALIZE** | Runner | Mark function artifacts valid & ready | N/A | N/A | Record hashes; store status | N/A |
+
+**Envelope shape per call:** All GPT‑5 calls return a JSON object. For PLAN, `files[]` contains **names only**. For SOURCE/SHIM/TESTS/BUILD+MANIFEST, `files[]` contains **bodies**. If a call produces multiple outputs (e.g., SHIM, BUILD+MANIFEST), `files[]` must contain exactly the listed paths and nothing else. Bodies are UTF‑8 text; binaries require base64 with `"encoding":"base64"`.
+
+---
+
+### 4B.2 Naming & Path Conventions (recap)
+
+- Per function `fN`, artifacts live in `.X/fN/`.
+- Shim files: `example.fN_shim.h`, `example.fN_shim.c`. C headers are **C‑only** (not C++), with `extern "C"` guards where needed.
+- Tests live in `.X/fN/tests/` as `test_fN.<ext>`; additional tests may be `test_fN_*.ext`.
+- Build artifacts: `.X/fN/build.json`, `.X/fN/manifest.json`.
+- Exported ABI symbol prefix: `ilang_` (e.g., `ilang_f1_add`, `ilang_f2_square`).
+
+---
+
+### 4B.3 Example: Files per Stage (f1 & f2)
+
+**`f1 = C(Python, "add two numbers", int, [int, int])`**
+
+- PLAN → declare: `example.f1.py`, `example.f1_shim.h`, `example.f1_shim.c`, `tests/test_f1.py`, `build.json`, `manifest.json`  
+- SOURCE → writes `example.f1.py`  
+- SHIM → writes `example.f1_shim.h`, `example.f1_shim.c` (exposes `int ilang_f1_add(int32_t a, int32_t b, int32_t* out)`)  
+- TESTS → writes `tests/test_f1.py`  
+- BUILD+MANIFEST → writes `build.json`, `manifest.json`  
+- VALIDATE → lint+dry‑compile shim; run tests  
+- FINALIZE → mark `.X/f1/` valid
+
+**`f2 = C(C++, "square number", int, [int])`**
+
+- PLAN → declare: `example.f2.cpp`, `example.f2_shim.h`, `example.f2_shim.c`, `tests/test_f2.cpp`, `build.json`, `manifest.json`  
+- SOURCE → writes `example.f2.cpp` (C linkage for ref impl as needed)  
+- SHIM → writes `example.f2_shim.h`, `example.f2_shim.c` (exposes `int ilang_f2_square(int32_t x, int32_t* out)`)  
+- TESTS → writes `tests/test_f2.cpp`  
+- BUILD+MANIFEST → writes `build.json`, `manifest.json`  
+- VALIDATE → compile shim; run tests  
+- FINALIZE → mark `.X/f2/` valid
+
+---
+
+### 4B.4 Repair Protocol (targeted patches)
+
+- **Trigger:** Any validation error (schema, lint, compile error, failed test).  
+- **Inputs to GPT‑5:** failing file **path**, the **exact failing body**, and **minimal logs** (compiler/test excerpt).  
+- **Output:** a JSON envelope with `files[]` containing **exactly one** entry (the same path) with a **corrected body**.  
+- **Budget:** bounded attempts (e.g., max 3 per stage).  
+- **Determinism:** no randomness added unless seeded and captured in `manifest.json`.
+
+---
+
+### 4B.5 Test & Build Requirements (minimums)
+
+- Tests must be **deterministic** and run under constrained resources.  
+- For C/C++ shims, build with `-std=c17` and `-Wall -Werror` (C) and conservative C++ standard if used in tests.  
+- ASM targets via `-S` are optional but recommended for auditability.  
+- Disallow network and OS‑specific syscalls in generated code unless explicitly permitted by policy.
+
+---
+
+### 4B.6 Cross‑Language Datatypes (reminder from §7)
+
+All shims use the C ABI and the iLang datatypes, including `ilang_dataframe` for DataFrame‑like data. When a source language uses native structures (e.g., pandas `DataFrame`), GPT‑5 is responsible for emitting **marshal/unmarshal** code at the shim boundary.
+
+---
+
+### 4B.7 Provenance & Reproducibility
+
+Every GPT‑5 call records in `manifest.json` (or a per‑function call log):
+
+- `model`, `prompt_hash`, `inputs_hash`
+- toolchain versions, compiler/linker flags
+- timestamps (UTC), content hashes
+- pass/fail status per stage and repair count
+
+This ensures that any artifact can be reproduced or audited.
+
+
 ## 5. Validation Before Build
 
 1. **Schema parse** (JSON).
