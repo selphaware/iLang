@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-ilang_gpt5_client.py — tiny, modular wrapper around OpenAI Responses API (GPT-5).
+aiinterface.py — tiny, modular wrapper around OpenAI Responses API (GPT-5).
+
+AI Interface
 
 - Set SYSTEM_PROMPT below or pass at runtime.
 - Call `chat()`, `chat_json()`, or `stream_chat()` from your code, or use CLI.
@@ -14,6 +16,8 @@ Usage (CLI):
 Env:
   export OPENAI_KEY=sk-...
 """
+__author__ = "Usman Ahmad"
+
 from __future__ import annotations
 import argparse, json, os, sys, time
 from typing import Any, Dict, Iterable, Optional
