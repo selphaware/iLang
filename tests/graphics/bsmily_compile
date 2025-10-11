@@ -1,0 +1,31 @@
+uahma@AHMAD1 UCRT64 /i/ilang-repo/iLang/tests/graphics
+$ pacman -S mingw-w64-ucrt-x86_64-SDL2
+resolving dependencies...
+looking for conflicting packages...
+
+Packages (1) mingw-w64-ucrt-x86_64-SDL2-2.32.10-1
+
+Total Download Size:   1.48 MiB
+Total Installed Size:  9.21 MiB
+
+:: Proceed with installation? [Y/n] y
+:: Retrieving packages...
+ mingw-w64-ucrt-x86_64-SDL2-2...  1515.1 KiB  1603 KiB/s 00:01 [#################################] 100%
+(1/1) checking keys in keyring                                 [#################################] 100%
+(1/1) checking package integrity                               [#################################] 100%
+(1/1) loading package files                                    [#################################] 100%
+(1/1) checking for file conflicts                              [#################################] 100%
+(1/1) checking available disk space                            [#################################] 100%
+:: Processing package changes...
+(1/1) installing mingw-w64-ucrt-x86_64-SDL2                    [#################################] 100%
+
+uahma@AHMAD1 UCRT64 /i/ilang-repo/iLang/tests/graphics
+$ gcc -S -O2 -masm=intel -fverbose-asm bsmily.c -o bsmily.s $(pkg-config --cflags sdl2)
+
+uahma@AHMAD1 UCRT64 /i/ilang-repo/iLang/tests/graphics
+$ gcc -c bsmily.s -o bsmily.o
+
+uahma@AHMAD1 UCRT64 /i/ilang-repo/iLang/tests/graphics
+$ gcc bsmily.o -o bsmily.exe $(pkg-config --libs sdl2)
+
+uahma@AHMAD1 UCRT64 /i/ilang-repo/iLang/tests/graphics
