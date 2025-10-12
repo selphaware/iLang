@@ -211,3 +211,4 @@ ILANG_ENV/*
 ILANG_ENV
 
 *.exe
+*.o
