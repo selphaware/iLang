@@ -1,0 +1,7 @@
+# requirements.txt for iLang
+# Core
+openai>=1.0.0
+typing-extensions>=4.0
+
+# Optional (CLI/documentation)
+markdown>=3.0
