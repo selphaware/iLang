@@ -212,3 +212,5 @@ ILANG_ENV
 
 *.exe
 *.o
+
+.vscode
