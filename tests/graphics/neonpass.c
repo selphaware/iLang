@@ -29,9 +29,9 @@ int main(void) {
     printf("\x1b[2J\x1b[H\x1b[?25l");
 
     // Funky welcome header
-    printf("\x1b[1;96m============================================\x1b[0m\n");
-    printf("\x1b[1;95m   W E L C O M E   T O   T H E   + O R T 1   \x1b[0m\n");
-    printf("\x1b[1;96m============================================\x1b[0m\n");
+    printf("\x1b[1;96m=============================================\x1b[0m\n");
+    printf("\x1b[1;95m   W E L C O M E   T O   T H E   X+ O R T 1   \x1b[0m\n");
+    printf("\x1b[1;96m=============================================\x1b[0m\n");
 
     // Reserve a line for the flashing credit
     printf("\n");
