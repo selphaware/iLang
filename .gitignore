@@ -214,3 +214,5 @@ ILANG_ENV
 *.o
 
 .vscode
+*.csv
+*.onnx
