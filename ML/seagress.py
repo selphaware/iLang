@@ -138,11 +138,11 @@ double score(const double *input);
         print("Wrote model_generated.h")
         print("\nNext steps:")
         print("  1) Compile the model to an object file:")
-        print("       gcc -O3 -c model_generated.c -o model_generated.o")
+        print("       gcc -O3 -c model_generated.c -o model_generated.o -lm")
         print("  2) Link it with your app (C):")
-        print("       gcc -O3 predictor.c model_generated.o -o predictor.exe")
+        print("       gcc -O3 predictor.c model_generated.o -o predictor.exe -lm")
         print("     or with C++:")
-        print("       g++ -O3 predictor.cpp model_generated.o -static -static-libgcc -static-libstdc++ -o predictor_cpp.exe\n")
+        print("       g++ -O3 predictor.cpp model_generated.o -static -static-libgcc -static-libstdc++ -o predictor_cpp.exe -lm\n")
     except Exception as e:
         print(f"[m2cgen export failed] {e}\nTip: pip install m2cgen")
 
