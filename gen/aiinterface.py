@@ -93,31 +93,41 @@ def chat_json(
     schema_hint: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Ask the model to return JSON. Minimal, reliable approach using JSON mode.
-    For stricter schemas, upgrade later to Structured Outputs/parse().
+    Return a JSON object using Chat Completions in JSON mode for maximum SDK compatibility.
+    If `schema_hint` is provided, it's appended to the user prompt as a shape hint.
     """
     client = make_client()
-    kwargs: Dict[str, Any] = {
-        "model": model,
-        "response_format": {"type": "json_object"},
-        "input": _mk_input(system_prompt, prompt),
-        "temperature": 0,  # nudge toward determinism when asking for JSON
-    }
-    # You can optionally include a schema hint in the prompt itself.
-    if schema_hint:
-        prompt_with_hint = prompt + "\n\nReturn JSON matching this shape:\n" + json.dumps(schema_hint)
-        kwargs["input"] = _mk_input(system_prompt, prompt_with_hint)
 
-    resp = client.responses.create(**kwargs)
-    text = getattr(resp, "output_text", "{}")
+    sys_msg = (
+        f"{system_prompt}\n"
+        "You MUST respond with a single valid JSON object only. "
+        "Do not include any prose, comments, or code fences."
+    )
+
+    user_msg = prompt
+    if schema_hint:
+        # Light-touch hinting; this is not strict validation, just guidance.
+        user_msg += "\n\nReturn JSON matching this shape:\n" + json.dumps(schema_hint)
+
+    resp = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": sys_msg},
+            {"role": "user", "content": user_msg},
+        ],
+        response_format={"type": "json_object"},
+        # temperature=0,
+    )
+
+    content = (resp.choices[0].message.content or "").strip() or "{}"
     try:
-        return json.loads(text)
+        return json.loads(content)
     except json.JSONDecodeError:
-        # Fall back: attempt to extract JSON substring
-        start = text.find("{")
-        end = text.rfind("}")
+        # Extremely rare with JSON mode, but keep a safe fallback:
+        start = content.find("{")
+        end = content.rfind("}")
         if start >= 0 and end > start:
-            return json.loads(text[start : end + 1])
+            return json.loads(content[start : end + 1])
         raise
 
 def stream_chat(

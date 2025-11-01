@@ -1,0 +1,10 @@
+module: sq
+abi_version: "1.0.0"
+status_pattern: true    # makes functions return status + out-params
+emit_smoke: true
+
+functions:
+  - signature: "int sq_add(int a, int b, int* out);"
+    description: "Compute a + b into *out; return 0 on success, nonzero on error."
+  - signature: "unsigned int sq_get_abi_version(void);"
+    description: "Return ABI version 0x00010000."
