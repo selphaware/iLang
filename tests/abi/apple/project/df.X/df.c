@@ -495,6 +495,7 @@ static int parse_filter(const char* s, char** out_col, FilterOp* out_op, char** 
     return 0;
 }
 
+__attribute__((unused))
 static int cmp_strings(const char* a, const char* b) {
     if (!a && !b) return 0;
     if (!a) return -1;
@@ -559,16 +560,15 @@ static void append_border(char** p, const int* widths, int ncols) {
 }
 
 static void append_row_cells(char** p, const char* const* cells, const int* widths, int ncols) {
-    int i;
     **p = '|'; (*p)++;
-    for (i = 0; i < ncols; ++i) {
+    for (int i = 0; i < ncols; ++i) {
         int w = widths[i];
         const char* s = cells[i] ? cells[i] : "";
-        int sl = (int)strlen(s);
+        size_t sl = strlen(s);                  // use size_t for lengths
         **p = ' '; (*p)++;
-        if (sl <= w) {
-            if (sl) { memcpy(*p, s, (size_t)sl); *p += sl; }
-            if (w - sl > 0) append_repeat(p, ' ', w - sl);
+        if (sl <= (size_t)w) {
+            if (sl) { memcpy(*p, s, sl); *p += (ptrdiff_t)sl; }
+            if (w > (int)sl) append_repeat(p, ' ', w - (int)sl);
         } else {
             memcpy(*p, s, (size_t)w);
             *p += w;
@@ -695,19 +695,48 @@ int df_format_table(void* df, const int* sel_cols, int n_sel_cols, const char* f
     int c;
     append_border(&p, widths, ncols_out);
     {
-        const char** hdr_cells = (const char**)xmalloc((size_t)ncols_out * sizeof(char*));
-        if (!hdr_cells) { free(cols_out); free(idx); free(widths); return 4; }
-        for (c = 0; c < ncols_out; ++c) hdr_cells[c] = d->col_names[cols_out[c]];
-        append_row_cells(&p, hdr_cells, widths, ncols_out);
-        free(hdr_cells);
+        if (ncols_out > 0) {
+            const char** hdr_cells = (const char**)xmalloc((size_t)ncols_out * sizeof(char*));
+            if (!hdr_cells) { free(cols_out); free(idx); free(widths); return 4; }
+
+            /* Explicitly initialize so GCC knows every entry is defined */
+            memset(hdr_cells, 0, (size_t)ncols_out * sizeof(char*));
+
+            for (c = 0; c < ncols_out; ++c) {
+                int col = cols_out[c];
+                const char* nm = (d->col_names && col >= 0) ? d->col_names[col] : NULL;
+                hdr_cells[c] = nm ? nm : "";  /* safe fallback */
+            }
+
+            append_row_cells(&p, hdr_cells, widths, ncols_out);
+            free(hdr_cells);
+        } else {
+            /* No columns: still emit an empty header line to keep borders consistent */
+            append_row_cells(&p, NULL, widths, 0);
+        }
     }
     append_border(&p, widths, ncols_out);
     for (irow = 0; irow < to_print; ++irow) {
-        const char** cells = (const char**)xmalloc((size_t)ncols_out * sizeof(char*));
-        if (!cells) { free(cols_out); free(idx); free(widths); return 4; }
-        for (c = 0; c < ncols_out; ++c) cells[c] = d->data[idx[irow]][cols_out[c]];
-        append_row_cells(&p, cells, widths, ncols_out);
-        free((void*)cells);
+        if (ncols_out > 0) {
+            const char** cells = (const char**)xmalloc((size_t)ncols_out * sizeof(char*));
+            if (!cells) { free(cols_out); free(idx); free(widths); return 4; }
+
+            /* Explicitly initialize */
+            memset(cells, 0, (size_t)ncols_out * sizeof(char*));
+
+            for (c = 0; c < ncols_out; ++c) {
+                int col = cols_out[c];
+                const char* v = (d->data && idx[irow] >= 0 && col >= 0)
+                                ? d->data[idx[irow]][col]
+                                : NULL;
+                cells[c] = v ? v : "";  /* safe fallback */
+            }
+
+            append_row_cells(&p, cells, widths, ncols_out);
+            free((void*)cells);
+        } else {
+            append_row_cells(&p, NULL, widths, 0);
+        }
     }
     append_border(&p, widths, ncols_out);
     *p = '\0';

@@ -1,0 +1,12 @@
+cp /ucrt64/bin/SDL2.dll .
+cp /ucrt64/bin/SDL2_ttf.dll .
+cp /ucrt64/bin/libfreetype-6.dll .
+cp /ucrt64/bin/zlib1.dll .
+cp /ucrt64/bin/libbrotlidec.dll .
+cp /ucrt64/bin/libbrotlicommon.dll .
+cp /ucrt64/bin/libpng16-16.dll .
+cp /ucrt64/bin/libharfbuzz-0.dll .
+cp /ucrt64/bin/libbz2-1.dll .
+cp /ucrt64/bin/libgraphite2.dll .
+cp /ucrt64/bin/libglib-2.0-0.dll .
+cp /ucrt64/bin/libgcc_s_seh-1.dll .

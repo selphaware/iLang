@@ -18,14 +18,14 @@ RENDERING & ANIMATION:
 - Font size: choose a size so that most lines fit on screen; dynamically scale down if needed per line to keep text fully on screen with some margin.
 - "Cool-looking" neon effect:
   - Pick a random neon base color (high saturation and high value). Generate via HSV with S>=0.9, V=1.0; random hue on each cycle.
-  - Render a multi-pass glow: first draw 3-5 blurred/outlined passes around the text (use TTF_SetFontOutline for an outline > 0 and multiple faded passes in the base color at decreasing alpha), then the main crisp glyphs on top in the base color at full alpha.
+  - Render a multi-pass glow: first draw 3–5 blurred/outlined passes around the text (use TTF_SetFontOutline for an outline > 0 and multiple faded passes in the base color at decreasing alpha), then the main crisp glyphs on top in the base color at full alpha.
 - Flashing:
   - Continuously pulse the text alpha using a sine wave: alpha = 160 + 95*sin(2*pi*F*t), where F = 2.0 Hz, t in seconds. Clamp to [0,255].
 - Minute cycle:
-  - The program iterates through the file's lines, showing one line for exactly 60 seconds.
+  - The program iterates through the file’s lines, showing one line for exactly 60 seconds.
   - At the START of each 60-second interval:
     - Instantly choose a new random neon base color (as defined above).
-    - Perform a quick spin animation of the text around its CENTER: rotate from 0 degrees to +360 degrees over 0.6 seconds at a smooth constant angular speed, then return to 0 degrees (no overshoot). During the spin, keep flashing and glow active. Rotation must use SDL_RenderCopyEx with the destination rect centered so rotation is around the text center.
+    - Perform a quick spin animation of the text around its CENTER: rotate from 0° → +360° over 0.6 seconds at a smooth constant angular speed, then return to 0° (no overshoot). During the spin, keep flashing and glow active. Rotation must use SDL_RenderCopyEx with the destination rect centered so rotation is around the text center.
   - After 60 seconds elapse, advance to the next line (wrap around to the first line).
 
 LAYOUT:
@@ -36,11 +36,11 @@ LAYOUT:
 TIMING:
 - Use SDL_GetTicks() (ms) for animation timing.
 - Frame loop should target ~60 FPS via SDL_Delay if needed.
-- The spin starts exactly when a new line/minute begins and lasts 600 ms. Outside that window, rotation angle must be exactly 0.
+- The spin starts exactly when a new line/minute begins and lasts 600 ms. Outside that window, rotation angle must be exactly 0°.
 
 COLOR & RANDOM:
 - Seed the RNG with time(NULL) at startup.
-- Implement HSV->RGB conversion to produce the neon base color. Keep the glow passes using the same hue with lower alpha.
+- Implement HSV→RGB conversion to produce the neon base color. Keep the glow passes using the same hue with lower alpha.
 
 FILE RELOAD:
 - Check the modification time of "showme.txt" once every 10 seconds; if it changed, reload and reset the list of lines (preserve current index if still valid; otherwise clamp). If after reload there are zero lines, fall back to "NO TEXT FOUND".
@@ -65,7 +65,7 @@ BUILD:
 - No other dependencies.
 
 IMPLEMENTATION NOTES (do, but do not explain in prose):
-- Represent a "LineSpec" with text string, chosen (and possibly scaled) font size, and a prepared set of textures (outline passes + main). Rebuild these when font size changes or when the color changes at the minute boundary.
+- Represent a “LineSpec” with text string, chosen (and possibly scaled) font size, and a prepared set of textures (outline passes + main). Rebuild these when font size changes or when the color changes at the minute boundary.
 - For flashing, modulate the texture alpha each frame (SDL_SetTextureAlphaMod) on all passes.
 - For spinning, compute angle based on (ticks_since_minute / 600ms) * 360.0 for the first 600 ms, else 0. Use SDL_RenderCopyEx centered on the text rect center.
 - Free all intermediate SDL_Surfaces immediately after creating SDL_Textures. On color change, rebuild the outline/main textures for the new base color.
