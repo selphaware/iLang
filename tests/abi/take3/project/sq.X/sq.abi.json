@@ -1,0 +1,36 @@
+{
+  "module": "sq",
+  "abi_version": "1.0.0",
+  "headers": [
+    "sq.h"
+  ],
+  "sources": [
+    "sq.c"
+  ],
+  "symbols": [
+    {
+      "name": "sq_add",
+      "ret": "int",
+      "args": [
+        "int",
+        "int",
+        "int*"
+      ]
+    },
+    {
+      "name": "sq_get_abi_version",
+      "ret": "unsigned int",
+      "args": []
+    }
+  ],
+  "memory_policy": "caller-alloc-out-buffers",
+  "link": {
+    "cflags": [
+      "-std=c99",
+      "-O3",
+      "-Wall",
+      "-Wextra"
+    ],
+    "ldflags": []
+  }
+}

@@ -93,32 +93,44 @@ def chat_json(
     schema_hint: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
-    Ask the model to return JSON. Minimal, reliable approach using JSON mode.
-    For stricter schemas, upgrade later to Structured Outputs/parse().
-    """
-    client = make_client()
-    kwargs: Dict[str, Any] = {
-        "model": model,
-        "response_format": {"type": "json_object"},
-        "input": _mk_input(system_prompt, prompt),
-        "temperature": 0,  # nudge toward determinism when asking for JSON
-    }
-    # You can optionally include a schema hint in the prompt itself.
-    if schema_hint:
-        prompt_with_hint = prompt + "\n\nReturn JSON matching this shape:\n" + json.dumps(schema_hint)
-        kwargs["input"] = _mk_input(system_prompt, prompt_with_hint)
+    Generate a JSON object using the standard chat() interface.
+    This delegates all model/version handling to chat(),
+    then parses the output into a Python dict.
 
-    resp = client.responses.create(**kwargs)
-    text = getattr(resp, "output_text", "{}")
+    Ensures robust behavior across GPT-5, o1, o3, etc.
+    """
+    # Augment the prompt to explicitly demand a JSON object
+    user_prompt = (
+        f"{prompt}\n\n"
+        "Return ONLY a valid JSON object, with no prose, code fences, or comments."
+    )
+
+    if schema_hint:
+        user_prompt += "\n\nMatch this JSON shape:\n" + json.dumps(schema_hint)
+
+    # Use the existing chat() function for the actual model call
+    text = chat(
+        user_prompt,
+        system_prompt=system_prompt,
+        model=model,
+        temperature=0,  # chat() will ignore this automatically for GPT-5
+    )
+
+    # Try to parse as JSON, with a fallback substring extractor
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        # Fall back: attempt to extract JSON substring
         start = text.find("{")
         end = text.rfind("}")
         if start >= 0 and end > start:
-            return json.loads(text[start : end + 1])
-        raise
+            try:
+                return json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                pass
+        # Last resort: emit empty dict and warn
+        print("[chat_json] Warning: could not parse model output as JSON.")
+        print("Raw output:", text[:500])
+        return {}
 
 def stream_chat(
     prompt: str,

@@ -1,0 +1,76 @@
+{
+  "module": "sq",
+  "abi_version": "1.0.0",
+  "headers": [
+    "sq.h"
+  ],
+  "sources": [
+    "sq.c"
+  ],
+  "symbols": [
+    {
+      "name": "sq",
+      "ret": "double",
+      "args": [
+        {
+          "type": "double",
+          "name": "x"
+        }
+      ]
+    },
+    {
+      "name": "sq_array",
+      "ret": "void",
+      "args": [
+        {
+          "type": "const double*",
+          "name": "in"
+        },
+        {
+          "type": "double*",
+          "name": "out"
+        },
+        {
+          "type": "size_t",
+          "name": "n"
+        }
+      ]
+    },
+    {
+      "name": "sq_array_stride",
+      "ret": "int",
+      "args": [
+        {
+          "type": "const double*",
+          "name": "in"
+        },
+        {
+          "type": "size_t",
+          "name": "in_stride"
+        },
+        {
+          "type": "double*",
+          "name": "out"
+        },
+        {
+          "type": "size_t",
+          "name": "out_stride"
+        },
+        {
+          "type": "size_t",
+          "name": "n"
+        }
+      ]
+    }
+  ],
+  "memory_policy": "caller-alloc-out-buffers",
+  "link": {
+    "cflags": [
+      "-std=c99",
+      "-O3",
+      "-Wall",
+      "-Wextra"
+    ],
+    "ldflags": []
+  }
+}
