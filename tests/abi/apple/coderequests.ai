@@ -1,0 +1,42 @@
+module: df
+abi_version: "1.0.0"
+status_pattern: true     # int return (0=OK), outputs via out-params
+emit_smoke: true
+
+functions:
+  - signature: "int df_read_csv(const char* path, char delimiter, void** out_df);"
+    description: >
+      Load CSV at 'path' with delimiter into an opaque dataframe handle stored in *out_df.
+      Return 0 on success; nonzero on error. Implementation must own all memory.
+      On error, *out_df = NULL.
+
+  - signature: "int df_shape(void* df, int* out_rows, int* out_cols);"
+    description: "Return row/column counts."
+
+  - signature: "int df_col_index(void* df, const char* name, int* out_idx);"
+    description: "Lookup a column index by name; return nonzero if not found."
+
+  - signature: "int df_columns_csv(void* df, char* out_buf, int out_buf_len, int* out_written);"
+    description: >
+      Write a comma-separated list of column names into out_buf. Set out_written to the
+      required length (including NUL). If out_buf_len is too small, return nonzero.
+
+  - signature: "int df_format_table(void* df, const int* sel_cols, int n_sel_cols, const char* filter_query, const int* sort_cols, const int* sort_dir_flags, int n_sort, int max_rows, char* out_buf, int out_buf_len, int* out_written);"
+    description: >
+      Render a pretty, monospace table into out_buf (caller-provided). Supports:
+      - Column selection: sel_cols is an array of column indices (or NULL for all).
+      - Filtering: filter_query grammar supports ==, !=, >, >=, <, <= on numeric cols,
+        and ==/!= on string cols; combine with AND/OR; parentheses optional.
+        Examples: "price>10 AND (category==\"A\" OR category==\"B\")"
+        An empty or NULL filter_query means no filtering.
+      - Sorting: multi-column; sort_cols[i] is a column idx, sort_dir_flags[i] is 1 for ASC, 0 for DESC.
+        Pass n_sort=0 for no sorting.
+      - max_rows caps the number of formatted rows (0 or negative = no cap).
+      - On success, write the NUL-terminated table string; set out_written to required length (including NUL).
+        If out_buf_len is too small, return nonzero but still set out_written so caller can re-allocate.
+
+  - signature: "void df_free(void* df);"
+    description: "Free the dataframe and all owned resources. Safe to call with NULL."
+
+  - signature: "unsigned int df_get_abi_version(void);"
+    description: "Return ABI version 0x00010000 (1.0.0)."

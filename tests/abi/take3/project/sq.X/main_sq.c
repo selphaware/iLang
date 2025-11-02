@@ -9,7 +9,7 @@ int main(void) {
     scanf("%d", &inpy);
     int rc, out;
     rc = sq_add(inpy, inpy, &out);
-    printf("\n\nResult: rc = %d, out = %d\n", rc, out);
+    printf("\n\nError = %d, Result = %d\n", rc, out);
     return 0;
 
 }

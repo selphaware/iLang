@@ -1,0 +1,88 @@
+{
+  "module": "df",
+  "abi_version": "1.0.0",
+  "headers": [
+    "df.h"
+  ],
+  "sources": [
+    "df.c"
+  ],
+  "symbols": [
+    {
+      "name": "df_read_csv",
+      "ret": "int",
+      "args": [
+        "const char*",
+        "char",
+        "void**"
+      ]
+    },
+    {
+      "name": "df_shape",
+      "ret": "int",
+      "args": [
+        "void*",
+        "int*",
+        "int*"
+      ]
+    },
+    {
+      "name": "df_col_index",
+      "ret": "int",
+      "args": [
+        "void*",
+        "const char*",
+        "int*"
+      ]
+    },
+    {
+      "name": "df_columns_csv",
+      "ret": "int",
+      "args": [
+        "void*",
+        "char*",
+        "int",
+        "int*"
+      ]
+    },
+    {
+      "name": "df_format_table",
+      "ret": "int",
+      "args": [
+        "void*",
+        "const int*",
+        "int",
+        "const char*",
+        "const int*",
+        "const int*",
+        "int",
+        "int",
+        "char*",
+        "int",
+        "int*"
+      ]
+    },
+    {
+      "name": "df_free",
+      "ret": "void",
+      "args": [
+        "void*"
+      ]
+    },
+    {
+      "name": "df_get_abi_version",
+      "ret": "unsigned int",
+      "args": []
+    }
+  ],
+  "memory_policy": "caller-alloc-out-buffers",
+  "link": {
+    "cflags": [
+      "-std=c99",
+      "-O3",
+      "-Wall",
+      "-Wextra"
+    ],
+    "ldflags": []
+  }
+}
