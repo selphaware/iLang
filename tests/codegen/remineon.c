@@ -390,6 +390,7 @@ int main(int argc, char **argv) {
     }
 
     /* Verify font path; if provided and fails, fallback to ./font.ttf */
+    // copy over e.g. arial.ttf from c:\windows\fonts to the root dir as font.ttf
     TTF_Font *probe = TTF_OpenFont(font_path, 32);
     if (!probe) {
         if (strcmp(font_path, "./font.ttf") != 0) {
@@ -412,7 +413,7 @@ int main(int argc, char **argv) {
     if (probe) TTF_CloseFont(probe);
 
     Uint32 win_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI;
-    SDL_Window *win = SDL_CreateWindow("remineon", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, win_flags);
+    SDL_Window *win = SDL_CreateWindow("remineon", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 320, 180, win_flags);
     if (!win) {
         fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
         TTF_Quit();
